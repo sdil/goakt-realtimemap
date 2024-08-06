@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	vehicle "sdil-busmap/gen/protos"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 
 type Vehicle struct {
 	id string
-	position Position
+	position []Position
 }
 
 type Position struct {
@@ -26,7 +25,7 @@ func NewVehicle() *Vehicle {
 }
 
 func (v *Vehicle) PreStart(ctx context.Context) error {
-	v.position = Position{}
+	v.position = make([]Position, 0)
 	return nil
 }
 
@@ -37,16 +36,15 @@ func (v *Vehicle) Receive(ctx goakt.ReceiveContext) {
 	case *vehicle.GetPosition:
 		ctx.Response(&vehicle.GetPosition{
 			VehicleId: v.id,
-			Latitude: v.position.Latitude,
-			Longitude: v.position.Longitude,
+			Latitude: v.position[len(v.position)-1].Latitude,
+			Longitude: v.position[len(v.position)-1].Longitude,
 		})
 	case *vehicle.UpdatePosition:
-		v.position = Position{
+		v.position = append(v.position, Position{
 			Latitude: ctx.Message().(*vehicle.UpdatePosition).Latitude,
 			Longitude: ctx.Message().(*vehicle.UpdatePosition).Longitude,
 			Timestamp: time.Now(),
-		}
-		fmt.Printf("%v: Updating position %v\n", v.id, v.position)
+		})
 	default:
 		ctx.Unhandled()
 	}
