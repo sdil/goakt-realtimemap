@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package vehicle;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "./vehicle";
+
+message GetPosition {
+  string vehicle_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message UpdatePosition {
+  double latitude = 2;
+  double longitude = 3;
+}
