@@ -10,12 +10,12 @@ import (
 )
 
 type Vehicle struct {
-	id string
+	id       string
 	position []Position
 }
 
 type Position struct {
-	Latitude float64
+	Latitude  float64
 	Longitude float64
 	Timestamp time.Time
 }
@@ -36,12 +36,12 @@ func (v *Vehicle) Receive(ctx goakt.ReceiveContext) {
 	case *vehicle.GetPosition:
 		ctx.Response(&vehicle.GetPosition{
 			VehicleId: v.id,
-			Latitude: v.position[len(v.position)-1].Latitude,
+			Latitude:  v.position[len(v.position)-1].Latitude,
 			Longitude: v.position[len(v.position)-1].Longitude,
 		})
 	case *vehicle.UpdatePosition:
 		v.position = append(v.position, Position{
-			Latitude: ctx.Message().(*vehicle.UpdatePosition).Latitude,
+			Latitude:  ctx.Message().(*vehicle.UpdatePosition).Latitude,
 			Longitude: ctx.Message().(*vehicle.UpdatePosition).Longitude,
 			Timestamp: time.Now(),
 		})

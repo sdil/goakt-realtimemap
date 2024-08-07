@@ -7,6 +7,7 @@ import (
 	vehicle "sdil-busmap/gen/protos"
 	"time"
 
+	"github.com/gorilla/websocket"
 	goakt "github.com/tochemey/goakt/v2/actors"
 	"github.com/tochemey/goakt/v2/log"
 )
@@ -35,6 +36,41 @@ func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 	}
 }
 
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins
+	},
+}
+
+func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			fmt.Print("upgrade:", err)
+			return
+		}
+		defer c.Close()
+		for {
+			for _, pid := range actorSystem.Actors() {
+				command := &vehicle.GetPosition{}
+				res, _ := goakt.Ask(context.Background(), pid, command, time.Second)
+				descriptors := res.ProtoReflect().Descriptor().Fields()
+
+				id := res.ProtoReflect().Get(descriptors.ByName("vehicle_id"))
+				latitude := res.ProtoReflect().Get(descriptors.ByName("latitude"))
+				longitude := res.ProtoReflect().Get(descriptors.ByName("longitude"))
+
+				msg := fmt.Sprintf("{\"id\": \"%v\", \"latitude\": %v, \"longitude\": %v}", id, latitude, longitude)
+				err = c.WriteMessage(1, []byte(msg)) // mt TextMessage = 1
+				if err != nil {
+					fmt.Println("write:", err)
+					break
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	ctx := context.Background()
 	logger := log.DefaultLogger
@@ -53,6 +89,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", healthHandler)
+	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
 	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem))
 
 	fmt.Println("Server is starting on port 8080...")

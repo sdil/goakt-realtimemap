@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Mapbox with Leaflet</title>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    </head>
+    <body>
+        <div id="map" style="width: 1200px; height: 100vh;"></div>
+    </body>
+    <script>
+    // Initialize the map
+const map = L.map('map').setView([51.505, -0.09], 13);
+
+// Add a Mapbox tile layer
+
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// Add a marker with an initial position
+
+let markers = [];
+
+// Establish WebSocket connection
+const ws = new WebSocket('ws://localhost:8080/realtime-vehicle');
+
+ws.onopen = () => {
+    console.log('WebSocket connection established');
+};
+
+ws.onmessage = (event) => {
+    // Parse the incoming data (assuming it's in JSON format)
+    console.log(event)
+    console.log(event.data)
+    const data = JSON.parse(event.data);
+
+    // Update the marker position
+    if (data.id && data.latitude && data.longitude) {
+        if (markers[data.id] === undefined) {
+            markers[data.id] = L.marker([data.latitude, data.longitude]).addTo(map);
+        } else {
+            markers[data.id].setLatLng([data.latitude, data.longitude]);
+        }
+    }
+};
+
+ws.onclose = () => {
+    console.log('WebSocket connection closed');
+};
+
+ws.onerror = (error) => {
+    console.error(error);
+};
+
+    </script>
+</html>
