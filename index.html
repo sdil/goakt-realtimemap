@@ -21,6 +21,8 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 // Add a marker with an initial position
 
+let first_data = true
+
 let markers = [];
 
 // Establish WebSocket connection
@@ -32,8 +34,6 @@ ws.onopen = () => {
 
 ws.onmessage = (event) => {
     // Parse the incoming data (assuming it's in JSON format)
-    console.log(event)
-    console.log(event.data)
     const data = JSON.parse(event.data);
 
     // Update the marker position
@@ -43,6 +43,11 @@ ws.onmessage = (event) => {
         } else {
             markers[data.id].setLatLng([data.latitude, data.longitude]);
         }
+    }
+
+    if (first_data) {
+        map.panTo([data.latitude, data.longitude]);
+        first_data = false;
     }
 };
 

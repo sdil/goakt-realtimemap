@@ -12,8 +12,8 @@ import (
 	"github.com/tochemey/goakt/v2/log"
 )
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "OK!")
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "index.html")
 }
 
 func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
@@ -44,12 +44,30 @@ var upgrader = websocket.Upgrader{
 
 func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := upgrader.Upgrade(w, r, nil)
+		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			fmt.Print("upgrade:", err)
 			return
 		}
-		defer c.Close()
+		defer ws.Close()
+
+		done := make(chan struct{})
+
+		go func() {
+			defer close(done)
+			for {
+				_, _, err := ws.ReadMessage()
+				if err != nil {
+					fmt.Println("read:", err)
+					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+						fmt.Printf("Read error: %v\n", err)
+					}
+					break
+				}
+
+			}
+		}()
+
 		for {
 			for _, pid := range actorSystem.Actors() {
 				command := &vehicle.GetPosition{}
@@ -61,10 +79,13 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 				longitude := res.ProtoReflect().Get(descriptors.ByName("longitude"))
 
 				msg := fmt.Sprintf("{\"id\": \"%v\", \"latitude\": %v, \"longitude\": %v}", id, latitude, longitude)
-				err = c.WriteMessage(1, []byte(msg)) // mt TextMessage = 1
+				err = ws.WriteMessage(websocket.TextMessage, []byte(msg)) // mt TextMessage = 1
 				if err != nil {
-					fmt.Println("write:", err)
-					break
+					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+						fmt.Println("write:", err)
+					}
+					ws.Close()
+					return
 				}
 			}
 		}
@@ -81,6 +102,10 @@ func main() {
 		goakt.WithMailboxSize(1_000_000),
 		goakt.WithActorInitMaxRetries(3),
 	)
+	if err != nil {
+		logger.Error("Error creating actor system", err)
+		return
+	}
 
 	err = actorSystem.Start(ctx)
 	if err != nil {
@@ -88,7 +113,7 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("/", healthHandler)
+	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
 	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem))
 
