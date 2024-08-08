@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	vehicle "sdil-busmap/gen/protos"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	goakt "github.com/tochemey/goakt/v2/actors"
 	"github.com/tochemey/goakt/v2/log"
 )
+
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
@@ -102,7 +104,11 @@ func main() {
 
 	fmt.Println("Server is starting on port 8080...")
 	go func() {
-		err = http.ListenAndServe("localhost:8080", nil)
+		host := "localhost:8080"
+		if (os.Getenv("RENDER") == "true") {
+			host = "0.0.0.0:10000"
+		}
+		err = http.ListenAndServe(host, nil)
 		if err != nil {
 			fmt.Printf("Error starting server: %s\n", err)
 		}
