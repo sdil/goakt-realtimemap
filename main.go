@@ -51,23 +51,6 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 		}
 		defer ws.Close()
 
-		done := make(chan struct{})
-
-		go func() {
-			defer close(done)
-			for {
-				_, _, err := ws.ReadMessage()
-				if err != nil {
-					fmt.Println("read:", err)
-					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-						fmt.Printf("Read error: %v\n", err)
-					}
-					break
-				}
-
-			}
-		}()
-
 		for {
 			for _, pid := range actorSystem.Actors() {
 				command := &vehicle.GetPosition{}
