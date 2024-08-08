@@ -26,7 +26,8 @@ let first_data = true
 let markers = [];
 
 // Establish WebSocket connection
-const ws = new WebSocket('wss://goakt-realtimemap.onrender.com/realtime-vehicle');
+// const ws = new WebSocket('wss://goakt-realtimemap.onrender.com/realtime-vehicle');
+const ws = new WebSocket('ws://localhost:8080/realtime-vehicle');
 
 ws.onopen = () => {
     console.log('WebSocket connection established');

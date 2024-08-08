@@ -44,6 +44,12 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+type LocationMessage struct {
+	Id        string  `json:"id"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
 func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
@@ -63,8 +69,13 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 				latitude := res.ProtoReflect().Get(descriptors.ByName("latitude"))
 				longitude := res.ProtoReflect().Get(descriptors.ByName("longitude"))
 
-				msg := fmt.Sprintf("{\"id\": \"%v\", \"latitude\": %v, \"longitude\": %v}", id, latitude, longitude)
-				err = ws.WriteMessage(websocket.TextMessage, []byte(msg)) // mt TextMessage = 1
+				msg := LocationMessage{
+					Id: id.String(),
+					Latitude: latitude.Float(),
+					Longitude: longitude.Float(),
+				}
+
+				err = ws.WriteJSON(msg)
 				if err != nil {
 					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 						fmt.Println("write:", err)
@@ -118,7 +129,6 @@ func main() {
 		if event.VehiclePosition.HasValidPosition() {
 			vid := &event.VehicleId
 
-			// actors := actorSystem.Actors()
 			_, pid, err := actorSystem.ActorOf(ctx, *vid)
 			if err != nil {
 				pid, err = actorSystem.Spawn(ctx, *vid, NewVehicle())
