@@ -60,7 +60,7 @@ func ConsumeVehicleEvents(onEvent func(*Event), ctx context.Context) <-chan bool
 
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker("ssl://mqtt.hsl.fi:8883")
-	opts.SetClientID("realtimemap-go")
+	opts.SetClientID("goakt-map")
 	opts.SetDefaultPublishHandler(f)
 	opts.SetKeepAlive(2 * time.Second)
 	opts.SetPingTimeout(1 * time.Second)

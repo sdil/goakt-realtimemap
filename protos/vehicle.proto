@@ -7,12 +7,15 @@ import "google/protobuf/timestamp.proto";
 option go_package = "./vehicle";
 
 message GetPosition {
-  string vehicle_id = 1;
-  double latitude = 2;
-  double longitude = 3;
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message GetPositionHistory {
+  repeated GetPosition positions = 1;
 }
 
 message UpdatePosition {
-  double latitude = 2;
-  double longitude = 3;
+  double latitude = 1;
+  double longitude = 2;
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/tochemey/goakt/v2/log"
 )
 
-
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
 }
@@ -29,57 +28,96 @@ func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 		}
 		command := &vehicle.GetPosition{}
 		res, _ := goakt.Ask(context.Background(), pid, command, time.Second)
-		descriptors := res.ProtoReflect().Descriptor().Fields()
+		location := res.(*vehicle.GetPosition)
 
-		latitude := res.ProtoReflect().Get(descriptors.ByName("latitude"))
-		longitude := res.ProtoReflect().Get(descriptors.ByName("longitude"))
-
-		fmt.Fprintf(w, "latitude: %v, longitude: %v", latitude, longitude)
+		fmt.Fprintf(w, "latitude: %v, longitude: %v", location.Latitude, location.Longitude)
 	}
 }
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins
+		return true
 	},
 }
 
-type LocationMessage struct {
-	Id        string  `json:"id"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+type Reply struct {
+	Type string      `json:"type"`
+	Data interface{} `json:"data"`
 }
 
 func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			fmt.Print("upgrade:", err)
+			fmt.Print("upgrade err:", err)
 			return
 		}
 		defer ws.Close()
+
+		// var locationHistory LocationHistoryRequest
+		// err = ws.ReadJSON(&locationHistory)
+		// if err != nil {
+		// 	if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		// 		fmt.Printf("Read error: %v\n", err)
+		// 	}
+		// 	return
+		// }
+
+		// if locationHistory.Type == "locationHistory" {
+		// 	pid, _ := actorSystem.LocalActor(locationHistory.Id)
+		// 	command := &vehicle.GetPositionHistory{}
+		// 	res, err := goakt.Ask(context.Background(), pid, command, time.Second)
+		// 	if err != nil {
+		// 		fmt.Printf("Error getting position history: %v\n", err)
+		// 		return
+		// 	}
+		// 	descriptors := res.ProtoReflect().Descriptor().Fields()
+		// 	positions := res.ProtoReflect().Get(descriptors.ByName("positions")).List()
+
+		// 	locationReponse := LocationHistoryResponse{}
+		// 	var positionsList []Location
+
+		// 	for i := 0; i < positions.Len(); i++ {
+		// 		position := positions.Get(i).Message()
+		// 		fmt.Println(position)
+		// 		latitude := position.Get(descriptors.ByName("latitude"))
+		// 		fmt.Println(latitude)
+		// 		longitude := position.Get(descriptors.ByName("latitude")).Float()
+		// 		fmt.Println(longitude)
+
+		// 		positionsList = append(positionsList, Location{
+		// 			Latitude:  latitude.Float(),
+		// 			Longitude: longitude,
+		// 		})
+		// 	}
+		// 	locationReponse.Positions = positionsList
+		// 	fmt.Println(locationReponse)
+		// 	ws.WriteJSON(Reply{
+		// 		Type: "locationHistory",
+		// 		Data: locationReponse,
+		// 	})
+		// }
 
 		for {
 			for _, pid := range actorSystem.Actors() {
 				command := &vehicle.GetPosition{}
 				res, _ := goakt.Ask(context.Background(), pid, command, time.Second)
-				descriptors := res.ProtoReflect().Descriptor().Fields()
 
-				id := res.ProtoReflect().Get(descriptors.ByName("vehicle_id"))
-				latitude := res.ProtoReflect().Get(descriptors.ByName("latitude"))
-				longitude := res.ProtoReflect().Get(descriptors.ByName("longitude"))
-
-				msg := LocationMessage{
-					Id: id.String(),
-					Latitude: latitude.Float(),
-					Longitude: longitude.Float(),
+				position, ok := res.(*vehicle.GetPosition)
+				if !ok {
+					fmt.Println("Error getting position")
+					return
 				}
 
-				err = ws.WriteJSON(msg)
+				err = ws.WriteJSON(Reply{
+					Type: "vehiclePosition",
+					Data: position,
+				})
 				if err != nil {
 					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 						fmt.Println("write:", err)
 					}
+					fmt.Println(err)
 					ws.Close()
 					return
 				}
@@ -116,7 +154,7 @@ func main() {
 	fmt.Println("Server is starting on port 8080...")
 	go func() {
 		host := "localhost:8080"
-		if (os.Getenv("RENDER") == "true") {
+		if os.Getenv("RENDER") == "true" {
 			host = "0.0.0.0:10000"
 		}
 		err = http.ListenAndServe(host, nil)

@@ -7,6 +7,7 @@
     </head>
     <body>
         <div id="map" style="width: 1200px; height: 100vh;"></div>
+        <div><ul id="vehicleList"></ul></div>
     </body>
     <script>
     // Initialize the map
@@ -35,20 +36,36 @@ ws.onopen = () => {
 
 ws.onmessage = (event) => {
     // Parse the incoming data (assuming it's in JSON format)
-    const data = JSON.parse(event.data);
+    const type = JSON.parse(event.data).type;
+    const data = JSON.parse(event.data).data;
 
     // Update the marker position
-    if (data.id && data.latitude && data.longitude) {
+    if (type === "vehiclePosition" && data.id && data.location.latitude && data.location.longitude) {
+        
+        // add/update marker on map
         if (markers[data.id] === undefined) {
-            markers[data.id] = L.marker([data.latitude, data.longitude]).addTo(map);
+            markers[data.id] = L.marker([data.location.latitude, data.location.longitude]).addTo(map);
         } else {
-            markers[data.id].setLatLng([data.latitude, data.longitude]);
+            markers[data.id].setLatLng([data.location.latitude, data.location.longitude]);
         }
-    }
 
-    if (first_data) {
-        map.panTo([data.latitude, data.longitude]);
-        first_data = false;
+        if (first_data) {
+            map.panTo([data.location.latitude, data.location.longitude]);
+            first_data = false;
+        }
+
+        // Add vehicle list
+        const vehicleList = document.getElementById('vehicleList');
+        const element = document.getElementById(data.id);
+        const textContent = `<span onClick=getLocationHistory(${data.id})>Vehicle ${data.id} </span> is at ${data.location.latitude}, ${data.location.longitude}`;
+        if (element) {
+            element.innerHTML = textContent;
+        } else {
+            const li = document.createElement('li');
+            li.setAttribute('id', data.id);
+            li.innerHTML = textContent;
+            vehicleList.appendChild(li);
+        }
     }
 };
 
@@ -59,6 +76,10 @@ ws.onclose = () => {
 ws.onerror = (error) => {
     console.error(error);
 };
+
+function getLocationHistory(vehicleId) {
+    ws.send(JSON.stringify({ type: 'locationHistory', data: { vehicleId: vehicleId } }));
+}
 
     </script>
 </html>

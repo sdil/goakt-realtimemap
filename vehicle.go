@@ -35,7 +35,6 @@ func (v *Vehicle) Receive(ctx goakt.ReceiveContext) {
 		v.id = ctx.Self().Name()
 	case *vehicle.GetPosition:
 		ctx.Response(&vehicle.GetPosition{
-			VehicleId: v.id,
 			Latitude:  v.position[len(v.position)-1].Latitude,
 			Longitude: v.position[len(v.position)-1].Longitude,
 		})
@@ -44,6 +43,17 @@ func (v *Vehicle) Receive(ctx goakt.ReceiveContext) {
 			Latitude:  ctx.Message().(*vehicle.UpdatePosition).Latitude,
 			Longitude: ctx.Message().(*vehicle.UpdatePosition).Longitude,
 			Timestamp: time.Now(),
+		})
+	case *vehicle.GetPositionHistory:
+		positions := make([]*vehicle.GetPosition, 0)
+		for _, p := range v.position {
+			positions = append(positions, &vehicle.GetPosition{
+				Latitude:  p.Latitude,
+				Longitude: p.Longitude,
+			})
+		}
+		ctx.Response(&vehicle.GetPositionHistory{
+			Positions: positions,
 		})
 	default:
 		ctx.Unhandled()
