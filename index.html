@@ -40,24 +40,24 @@ ws.onmessage = (event) => {
     const data = JSON.parse(event.data).data;
 
     // Update the marker position
-    if (type === "vehiclePosition" && data.id && data.location.latitude && data.location.longitude) {
+    if (type === "vehiclePosition") {
         
         // add/update marker on map
         if (markers[data.id] === undefined) {
-            markers[data.id] = L.marker([data.location.latitude, data.location.longitude]).addTo(map);
+            markers[data.id] = L.marker([data.latitude, data.longitude]).addTo(map);
         } else {
-            markers[data.id].setLatLng([data.location.latitude, data.location.longitude]);
+            markers[data.id].setLatLng([data.latitude, data.longitude]);
         }
 
         if (first_data) {
-            map.panTo([data.location.latitude, data.location.longitude]);
+            map.panTo([data.latitude, data.longitude]);
             first_data = false;
         }
 
         // Add vehicle list
         const vehicleList = document.getElementById('vehicleList');
         const element = document.getElementById(data.id);
-        const textContent = `<span onClick=getLocationHistory(${data.id})>Vehicle ${data.id} </span> is at ${data.location.latitude}, ${data.location.longitude}`;
+        const textContent = `<span onClick=getLocationHistory(${data.id})>Vehicle ${data.id} </span> is at ${data.latitude}, ${data.longitude}`;
         if (element) {
             element.innerHTML = textContent;
         } else {

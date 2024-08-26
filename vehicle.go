@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	vehicle "sdil-busmap/gen/protos"
 	"time"
 
@@ -29,21 +30,24 @@ func (v *Vehicle) PreStart(ctx context.Context) error {
 	return nil
 }
 
-func (v *Vehicle) Receive(ctx goakt.ReceiveContext) {
+func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 	switch ctx.Message().(type) {
 	case *goaktpb.PostStart:
 		v.id = ctx.Self().Name()
+		fmt.Println("Vehicle", v.id, "started")
 	case *vehicle.GetPosition:
 		ctx.Response(&vehicle.GetPosition{
 			Latitude:  v.position[len(v.position)-1].Latitude,
 			Longitude: v.position[len(v.position)-1].Longitude,
 		})
 	case *vehicle.UpdatePosition:
-		v.position = append(v.position, Position{
+		pos := Position{
 			Latitude:  ctx.Message().(*vehicle.UpdatePosition).Latitude,
 			Longitude: ctx.Message().(*vehicle.UpdatePosition).Longitude,
 			Timestamp: time.Now(),
-		})
+		}
+		fmt.Println("update position", v.id, pos)
+		v.position = append(v.position, pos)
 	case *vehicle.GetPositionHistory:
 		positions := make([]*vehicle.GetPosition, 0)
 		for _, p := range v.position {

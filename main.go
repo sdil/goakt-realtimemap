@@ -27,10 +27,10 @@ func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 			return
 		}
 		command := &vehicle.GetPosition{}
-		res, _ := goakt.Ask(context.Background(), pid, command, time.Second)
-		location := res.(*vehicle.GetPosition)
+		res, _ := goakt.Ask(context.Background(), pid, command, time.Minute)
+		position := res.(*vehicle.GetPosition)
 
-		fmt.Fprintf(w, "latitude: %v, longitude: %v", location.Latitude, location.Longitude)
+		fmt.Fprintf(w, "pid %v, latitude: %v, longitude: %v", pid.Name(), position.Latitude, position.Longitude)
 	}
 }
 
@@ -133,7 +133,6 @@ func main() {
 	actorSystem, err := goakt.NewActorSystem("VehicleActorSystem",
 		goakt.WithPassivationDisabled(),
 		goakt.WithLogger(logger),
-		goakt.WithMailboxSize(1_000_000),
 		goakt.WithActorInitMaxRetries(3),
 	)
 	if err != nil {
@@ -167,13 +166,10 @@ func main() {
 		if event.VehiclePosition.HasValidPosition() {
 			vid := &event.VehicleId
 
-			_, pid, err := actorSystem.ActorOf(ctx, *vid)
+			pid, err := actorSystem.Spawn(ctx, *vid, NewVehicle())
 			if err != nil {
-				pid, err = actorSystem.Spawn(ctx, *vid, NewVehicle())
-				if err != nil {
-					logger.Error("Error starting actor instance", err)
-					return
-				}
+				logger.Error("Error starting actor instance", err)
+				return
 			}
 
 			command := &vehicle.UpdatePosition{
