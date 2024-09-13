@@ -31,7 +31,7 @@ func (v *Vehicle) PreStart(ctx context.Context) error {
 }
 
 func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
-	switch ctx.Message().(type) {
+	switch msg := ctx.Message().(type) {
 	case *goaktpb.PostStart:
 		v.id = ctx.Self().Name()
 		fmt.Println("Vehicle", v.id, "started")
@@ -42,11 +42,10 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 		})
 	case *vehicle.UpdatePosition:
 		pos := Position{
-			Latitude:  ctx.Message().(*vehicle.UpdatePosition).Latitude,
-			Longitude: ctx.Message().(*vehicle.UpdatePosition).Longitude,
+			Latitude:  msg.GetLatitude(),
+			Longitude: msg.GetLongitude(),
 			Timestamp: time.Now(),
 		}
-		fmt.Println("update position", v.id, pos)
 		v.position = append(v.position, pos)
 	case *vehicle.GetPositionHistory:
 		positions := make([]*vehicle.GetPosition, 0)

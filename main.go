@@ -7,6 +7,7 @@ import (
 	"os"
 	vehicle "sdil-busmap/gen/protos"
 	"time"
+	"runtime"
 
 	"github.com/gorilla/websocket"
 	goakt "github.com/tochemey/goakt/v2/actors"
@@ -127,6 +128,7 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 }
 
 func main() {
+	fmt.Println(runtime.NumCPU())
 	ctx := context.Background()
 	logger := log.DefaultLogger
 

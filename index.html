@@ -38,15 +38,16 @@ ws.onmessage = (event) => {
     // Parse the incoming data (assuming it's in JSON format)
     const type = JSON.parse(event.data).type;
     const data = JSON.parse(event.data).data;
+    const id = JSON.parse(event.data).id;
 
     // Update the marker position
     if (type === "vehiclePosition") {
         
         // add/update marker on map
-        if (markers[data.id] === undefined) {
-            markers[data.id] = L.marker([data.latitude, data.longitude]).addTo(map);
+        if (markers[id] === undefined) {
+            markers[id] = L.marker([data.latitude, data.longitude]).addTo(map);
         } else {
-            markers[data.id].setLatLng([data.latitude, data.longitude]);
+            markers[id].setLatLng([data.latitude, data.longitude]);
         }
 
         if (first_data) {
@@ -56,13 +57,13 @@ ws.onmessage = (event) => {
 
         // Add vehicle list
         const vehicleList = document.getElementById('vehicleList');
-        const element = document.getElementById(data.id);
-        const textContent = `<span onClick=getLocationHistory(${data.id})>Vehicle ${data.id} </span> is at ${data.latitude}, ${data.longitude}`;
+        const element = document.getElementById(id);
+        const textContent = `<span onClick=getLocationHistory(${id})>Vehicle ${id} </span> is at ${data.latitude}, ${data.longitude}`;
         if (element) {
             element.innerHTML = textContent;
         } else {
             const li = document.createElement('li');
-            li.setAttribute('id', data.id);
+            li.setAttribute('id', id);
             li.innerHTML = textContent;
             vehicleList.appendChild(li);
         }
