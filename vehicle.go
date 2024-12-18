@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+	"math/rand"
 
 	vehicle "sdil-busmap/gen/protos"
 
@@ -64,6 +65,10 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 			Positions: positions,
 		})
 	case *vehicle.PersistLocation:
+		// Distribute the update randomly
+		// so that the database load is not too high
+		randomNumber := rand.Intn(10) + 1
+		time.Sleep(time.Duration(randomNumber) * time.Second)
 		err := v.persistLocation()
 		if err != nil {
 			fmt.Println("Error persisting location", err)
