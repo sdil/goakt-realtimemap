@@ -203,15 +203,18 @@ func main() {
 		<-ingressDone
 	}()
 
-	go func() {
-		for {
-			actors := actorSystem.Actors()
-			for _, actor := range actors {
-				actorSystem.Schedule(ctx, &vehicle.PersistLocation{}, actor, time.Minute)
-			}
-			time.Sleep(time.Minute)
+	// Let the events flow for a minute before scheduling persist location
+	time.Sleep(time.Minute)
+	fmt.Println("scheduling persist location")
+
+	actors := actorSystem.Actors()
+	for _, actor := range actors {
+		err := actorSystem.ScheduleWithCron(ctx, &vehicle.PersistLocation{}, actor, "0 * * * * * *")
+		if err != nil {
+			logger.Error("Error scheduling persist location", err)
+			return
 		}
-	}()
+	}
 
 	// Capture ctr+c signal
 	interruptSignal := make(chan os.Signal, 1)

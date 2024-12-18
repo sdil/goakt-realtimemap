@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package vehicle;
 
-import "google/protobuf/timestamp.proto";
-
 option go_package = "./vehicle";
 
 message GetPosition {

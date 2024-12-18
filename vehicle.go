@@ -74,12 +74,12 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 }
 
 func (v *Vehicle) PostStop(ctx context.Context) error {
-	fmt.Println("Persisting location", v.id)
 	v.persistLocation()
 	return nil
 }
 
 func (v *Vehicle) persistLocation() error {
+	fmt.Println("Persisting location", v.id)
 	_, err := v.db.Exec("INSERT INTO positions (id, latitude, longitude, timestamp) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET latitude = excluded.latitude, longitude = excluded.longitude, timestamp = excluded.timestamp",
 		v.id,
 		v.position[len(v.position)-1].Latitude,
