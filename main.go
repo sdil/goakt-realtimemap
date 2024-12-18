@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	vehicle "sdil-busmap/gen/protos"
+	"syscall"
 	"time"
-	"runtime"
 
 	"github.com/gorilla/websocket"
+	_ "github.com/mattn/go-sqlite3"
 	goakt "github.com/tochemey/goakt/v2/actors"
 	"github.com/tochemey/goakt/v2/log"
 )
@@ -128,9 +131,25 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 }
 
 func main() {
-	fmt.Println(runtime.NumCPU())
 	ctx := context.Background()
 	logger := log.DefaultLogger
+
+	// Connect to SQLite database
+	db, err := sql.Open("sqlite3", "vehicle_position.db?_journal_mode=WAL")
+	if err != nil {
+		logger.Error("Error connecting to SQLite database", err)
+		return
+	}
+	defer db.Close()
+
+	// Verify the connection
+	err = db.Ping()
+	if err != nil {
+		logger.Error("Error verifying connection to SQLite database", err)
+		return
+	}
+
+	logger.Info("Successfully connected to SQLite database")
 
 	actorSystem, err := goakt.NewActorSystem("VehicleActorSystem",
 		goakt.WithPassivationDisabled(),
@@ -148,40 +167,61 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("/", homeHandler)
+	// http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
 	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem))
 
 	fmt.Println("Server is starting on port 8080...")
 	go func() {
 		host := "localhost:8080"
-		if os.Getenv("RENDER") == "true" {
-			host = "0.0.0.0:10000"
-		}
 		err = http.ListenAndServe(host, nil)
 		if err != nil {
 			fmt.Printf("Error starting server: %s\n", err)
 		}
 	}()
 
-	ingressDone := ConsumeVehicleEvents(func(event *Event) {
-		if event.VehiclePosition.HasValidPosition() {
-			vid := &event.VehicleId
+	go func() {
+		ingressDone := ConsumeVehicleEvents(func(event *Event) {
+			if event.VehiclePosition.HasValidPosition() {
+				vid := &event.VehicleId
 
-			pid, err := actorSystem.Spawn(ctx, *vid, NewVehicle())
-			if err != nil {
-				logger.Error("Error starting actor instance", err)
-				return
+				pid, err := actorSystem.Spawn(ctx, *vid, NewVehicle(*vid, db))
+				if err != nil {
+					logger.Error("Error starting actor instance", err)
+					return
+				}
+
+				command := &vehicle.UpdatePosition{
+					Latitude:  *event.VehiclePosition.Latitude,
+					Longitude: *event.VehiclePosition.Longitude,
+				}
+
+				_ = goakt.Tell(ctx, pid, command)
 			}
+		}, ctx)
 
-			command := &vehicle.UpdatePosition{
-				Latitude:  *event.VehiclePosition.Latitude,
-				Longitude: *event.VehiclePosition.Longitude,
+		<-ingressDone
+	}()
+
+	go func() {
+		for {
+			actors := actorSystem.Actors()
+			for _, actor := range actors {
+				actorSystem.Schedule(ctx, &vehicle.PersistLocation{}, actor, time.Minute)
 			}
-
-			_ = goakt.Tell(ctx, pid, command)
+			time.Sleep(time.Minute)
 		}
-	}, ctx)
+	}()
 
-	<-ingressDone
+	// Capture ctr+c signal
+	interruptSignal := make(chan os.Signal, 1)
+	signal.Notify(interruptSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	<-interruptSignal
+
+	logger.Info("Shutting down actor system")
+	err = actorSystem.Stop(ctx)
+	if err != nil {
+		logger.Error("Error stopping actor system", err)
+		return
+	}
 }

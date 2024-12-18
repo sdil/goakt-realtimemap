@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	vehicle "sdil-busmap/gen/protos"
 	"time"
+
+	vehicle "sdil-busmap/gen/protos"
 
 	goakt "github.com/tochemey/goakt/v2/actors"
 	"github.com/tochemey/goakt/v2/goaktpb"
@@ -13,6 +15,7 @@ import (
 type Vehicle struct {
 	id       string
 	position []Position
+	db       *sql.DB
 }
 
 type Position struct {
@@ -21,8 +24,11 @@ type Position struct {
 	Timestamp time.Time
 }
 
-func NewVehicle() *Vehicle {
-	return &Vehicle{}
+func NewVehicle(id string, db *sql.DB) *Vehicle {
+	return &Vehicle{
+		id: id,
+		db: db,
+	}
 }
 
 func (v *Vehicle) PreStart(ctx context.Context) error {
@@ -33,7 +39,6 @@ func (v *Vehicle) PreStart(ctx context.Context) error {
 func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 	switch msg := ctx.Message().(type) {
 	case *goaktpb.PostStart:
-		v.id = ctx.Self().Name()
 		fmt.Println("Vehicle", v.id, "started")
 	case *vehicle.GetPosition:
 		ctx.Response(&vehicle.GetPosition{
@@ -58,12 +63,32 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 		ctx.Response(&vehicle.GetPositionHistory{
 			Positions: positions,
 		})
+	case *vehicle.PersistLocation:
+		err := v.persistLocation()
+		if err != nil {
+			fmt.Println("Error persisting location", err)
+		}
 	default:
 		ctx.Unhandled()
 	}
 }
 
 func (v *Vehicle) PostStop(ctx context.Context) error {
-	// Do nothing
+	fmt.Println("Persisting location", v.id)
+	v.persistLocation()
+	return nil
+}
+
+func (v *Vehicle) persistLocation() error {
+	_, err := v.db.Exec("INSERT INTO positions (id, latitude, longitude, timestamp) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET latitude = excluded.latitude, longitude = excluded.longitude, timestamp = excluded.timestamp",
+		v.id,
+		v.position[len(v.position)-1].Latitude,
+		v.position[len(v.position)-1].Longitude,
+		v.position[len(v.position)-1].Timestamp,
+	)
+	if err != nil {
+		fmt.Println("Error inserting location", err)
+		return err
+	}
 	return nil
 }
