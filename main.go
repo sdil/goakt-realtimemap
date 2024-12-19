@@ -45,8 +45,9 @@ var upgrader = websocket.Upgrader{
 }
 
 type Reply struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
+	Id       string      `json:"id"`
+	Type     string      `json:"type"`
+	Position interface{} `json:"position"`
 }
 
 func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
@@ -57,50 +58,6 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 			return
 		}
 		defer ws.Close()
-
-		// var locationHistory LocationHistoryRequest
-		// err = ws.ReadJSON(&locationHistory)
-		// if err != nil {
-		// 	if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-		// 		fmt.Printf("Read error: %v\n", err)
-		// 	}
-		// 	return
-		// }
-
-		// if locationHistory.Type == "locationHistory" {
-		// 	pid, _ := actorSystem.LocalActor(locationHistory.Id)
-		// 	command := &vehicle.GetPositionHistory{}
-		// 	res, err := goakt.Ask(context.Background(), pid, command, time.Second)
-		// 	if err != nil {
-		// 		fmt.Printf("Error getting position history: %v\n", err)
-		// 		return
-		// 	}
-		// 	descriptors := res.ProtoReflect().Descriptor().Fields()
-		// 	positions := res.ProtoReflect().Get(descriptors.ByName("positions")).List()
-
-		// 	locationReponse := LocationHistoryResponse{}
-		// 	var positionsList []Location
-
-		// 	for i := 0; i < positions.Len(); i++ {
-		// 		position := positions.Get(i).Message()
-		// 		fmt.Println(position)
-		// 		latitude := position.Get(descriptors.ByName("latitude"))
-		// 		fmt.Println(latitude)
-		// 		longitude := position.Get(descriptors.ByName("latitude")).Float()
-		// 		fmt.Println(longitude)
-
-		// 		positionsList = append(positionsList, Location{
-		// 			Latitude:  latitude.Float(),
-		// 			Longitude: longitude,
-		// 		})
-		// 	}
-		// 	locationReponse.Positions = positionsList
-		// 	fmt.Println(locationReponse)
-		// 	ws.WriteJSON(Reply{
-		// 		Type: "locationHistory",
-		// 		Data: locationReponse,
-		// 	})
-		// }
 
 		for {
 			for _, pid := range actorSystem.Actors() {
@@ -114,8 +71,9 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 				}
 
 				err = ws.WriteJSON(Reply{
+					Id:       pid.Name(),
 					Type: "vehiclePosition",
-					Data: position,
+					Position: position,
 				})
 				if err != nil {
 					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -174,7 +132,7 @@ func main() {
 		}
 	}()
 
-	// http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
 	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem))
 

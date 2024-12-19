@@ -2,6 +2,10 @@
 
 This project is a vehicle tracking system that uses WebSockets for real-time updates and a SQLite database for storing vehicle positions. The system is built using Go and leverages the `goakt` actor framework for handling vehicle actors.
 
+Quick UI demo:
+
+https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
+
 ## Features
 
 - **Real-Time Tracking**: Uses WebSockets to provide real-time updates of vehicle positions.
@@ -54,7 +58,8 @@ This project is a vehicle tracking system that uses WebSockets for real-time upd
     go run main.go
     ```
 
-2. Open [index.html](http://localhost:8000) in your browser to view the real-time vehicle tracking map.
+2. Open http://localhost:8080 in your browser to view the real-time vehicle tracking map.
+3. Curl http://localhost:8080//vehicle?id={vehicle_id} in your terminal to see location of individual vehicle.
 
 ### API Endpoints
 
