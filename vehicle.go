@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 	"math/rand"
+	"time"
 
 	vehicle "sdil-busmap/gen/protos"
 

@@ -166,6 +166,13 @@ func main() {
 		logger.Error("Error starting actor system", err)
 		return
 	}
+	defer func() {
+		logger.Info("Shutting down actor system")
+		err := actorSystem.Stop(ctx)
+		if err != nil {
+			logger.Error("Error stopping actor system", err)
+		}
+	}()
 
 	// http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
@@ -204,27 +211,22 @@ func main() {
 	}()
 
 	// Let the events flow for a minute before scheduling persist location
-	time.Sleep(time.Minute)
-	fmt.Println("scheduling persist location")
+	go func() {
+		time.Sleep(time.Minute)
+		fmt.Println("scheduling persist location")
 
-	actors := actorSystem.Actors()
-	for _, actor := range actors {
-		err := actorSystem.ScheduleWithCron(ctx, &vehicle.PersistLocation{}, actor, "0 * * * * * *")
-		if err != nil {
-			logger.Error("Error scheduling persist location", err)
-			return
+		actors := actorSystem.Actors()
+		for _, actor := range actors {
+			err := actorSystem.ScheduleWithCron(ctx, &vehicle.PersistLocation{}, actor, "0 * * * * * *")
+			if err != nil {
+				logger.Error("Error scheduling persist location", err)
+				return
+			}
 		}
-	}
+	}()
 
 	// Capture ctr+c signal
 	interruptSignal := make(chan os.Signal, 1)
 	signal.Notify(interruptSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-interruptSignal
-
-	logger.Info("Shutting down actor system")
-	err = actorSystem.Stop(ctx)
-	if err != nil {
-		logger.Error("Error stopping actor system", err)
-		return
-	}
 }
