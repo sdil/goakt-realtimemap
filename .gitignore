@@ -4,3 +4,5 @@ vendor/
 .tools/
 .idea/
 .vscode/
+*.db-shm
+*.db-wal
