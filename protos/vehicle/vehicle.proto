@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package vehicle;
+package vehiclepb;
 
-option go_package = "./vehicle";
+option go_package = ".;vehiclepb";
 
 message GetPosition {
   double latitude = 1;

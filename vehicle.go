@@ -7,23 +7,28 @@ import (
 	"math/rand"
 	"time"
 
-	vehicle "sdil-busmap/gen/protos"
-
 	goakt "github.com/tochemey/goakt/v2/actors"
 	"github.com/tochemey/goakt/v2/goaktpb"
-)
+	"github.com/tochemey/goakt/v2/log"
 
-type Vehicle struct {
-	id       string
-	position []Position
-	db       *sql.DB
-}
+	pb "sdil-busmap/pb"
+)
 
 type Position struct {
 	Latitude  float64
 	Longitude float64
 	Timestamp time.Time
 }
+
+type Vehicle struct {
+	id       string
+	position []Position
+	db       *sql.DB
+	logger   log.Logger
+}
+
+// ensure that Vehicle implements Actor interface
+var _ goakt.Actor = (*Vehicle)(nil)
 
 func NewVehicle(id string, db *sql.DB) *Vehicle {
 	return &Vehicle{
@@ -40,60 +45,61 @@ func (v *Vehicle) PreStart(ctx context.Context) error {
 func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 	switch msg := ctx.Message().(type) {
 	case *goaktpb.PostStart:
-		fmt.Println("Vehicle", v.id, "started")
-	case *vehicle.GetPosition:
-		ctx.Response(&vehicle.GetPosition{
+		v.logger = ctx.Logger()
+		v.logger.Infof("Vehicle=(%s) started", v.id)
+	case *pb.GetPosition:
+		ctx.Response(&pb.GetPosition{
 			Latitude:  v.position[len(v.position)-1].Latitude,
 			Longitude: v.position[len(v.position)-1].Longitude,
 		})
-	case *vehicle.UpdatePosition:
+	case *pb.UpdatePosition:
 		pos := Position{
 			Latitude:  msg.GetLatitude(),
 			Longitude: msg.GetLongitude(),
 			Timestamp: time.Now(),
 		}
 		v.position = append(v.position, pos)
-	case *vehicle.GetPositionHistory:
-		positions := make([]*vehicle.GetPosition, 0)
+	case *pb.GetPositionHistory:
+		positions := make([]*pb.GetPosition, 0)
 		for _, p := range v.position {
-			positions = append(positions, &vehicle.GetPosition{
+			positions = append(positions, &pb.GetPosition{
 				Latitude:  p.Latitude,
 				Longitude: p.Longitude,
 			})
 		}
-		ctx.Response(&vehicle.GetPositionHistory{
+		ctx.Response(&pb.GetPositionHistory{
 			Positions: positions,
 		})
-	case *vehicle.PersistLocation:
+	case *pb.PersistLocation:
 		// Distribute the update randomly
 		// so that the database load is not too high
 		randomNumber := rand.Intn(10) + 1
 		time.Sleep(time.Duration(randomNumber) * time.Second)
-		err := v.persistLocation()
-		if err != nil {
-			fmt.Println("Error persisting location", err)
+		if err := v.persistLocation(ctx.Context()); err != nil {
+			v.logger.Errorf("failed to persist location: %v", err)
+			ctx.Err(goakt.NewInternalError(err))
 		}
+
 	default:
 		ctx.Unhandled()
 	}
 }
 
 func (v *Vehicle) PostStop(ctx context.Context) error {
-	v.persistLocation()
-	return nil
+	return v.persistLocation(ctx)
 }
 
-func (v *Vehicle) persistLocation() error {
-	fmt.Println("Persisting location", v.id)
-	_, err := v.db.Exec("INSERT INTO positions (id, latitude, longitude, timestamp) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET latitude = excluded.latitude, longitude = excluded.longitude, timestamp = excluded.timestamp",
+func (v *Vehicle) persistLocation(ctx context.Context) error {
+	v.logger.Debugf("Vehicle=(%s) persisting location", v.id)
+	_, err := v.db.ExecContext(ctx, "INSERT INTO positions (id, latitude, longitude, timestamp) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET latitude = excluded.latitude, longitude = excluded.longitude, timestamp = excluded.timestamp",
 		v.id,
 		v.position[len(v.position)-1].Latitude,
 		v.position[len(v.position)-1].Longitude,
 		v.position[len(v.position)-1].Timestamp,
 	)
 	if err != nil {
-		fmt.Println("Error inserting location", err)
-		return err
+		return fmt.Errorf("failed to persist location: %v", err)
 	}
+	v.logger.Debugf("Vehicle=(%s) location successfully persisted", v.id)
 	return nil
 }
