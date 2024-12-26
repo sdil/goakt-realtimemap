@@ -29,3 +29,4 @@ protogen:
 
     # save artifact to
     SAVE ARTIFACT gen/vehicle AS LOCAL pb
+
