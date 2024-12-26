@@ -5,11 +5,11 @@ go 1.23.4
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/tochemey/goakt/v2 v2.9.2-0.20241209111500-8411010ad0d3
-	google.golang.org/protobuf v1.36.0
+	github.com/tochemey/goakt/v2 v2.11.0
+	google.golang.org/protobuf v1.36.1
 )
 
-replace github.com/tochemey/goakt/v2 => ../goakt-mirror
+require github.com/deckarep/golang-set/v2 v2.7.0 // indirect
 
 require (
 	connectrpc.com/connect v1.17.0 // indirect

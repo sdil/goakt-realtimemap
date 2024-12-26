@@ -59,7 +59,7 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
     ```
 
 2. Open http://localhost:8080 in your browser to view the real-time vehicle tracking map.
-3. Curl http://localhost:8080//vehicle?id={vehicle_id} in your terminal to see location of individual vehicle.
+3. Curl http://localhost:8080/vehicle?id={vehicle_id} in your terminal to see location of individual vehicle.
 
 ### API Endpoints
 
@@ -77,6 +77,11 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
 ### Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
+This repo uses [Earthly](https://earthly.dev/get-earthly) to generate the pbs. Once earthly install just run the following command
+
+```bash
+earthly --no-cache +protogen
+```
 
 ### License
 

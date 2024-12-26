@@ -1,2 +1,8 @@
 vendor/
 *.db
+*.wal
+.tools/
+.idea/
+.vscode/
+*.db-shm
+*.db-wal
