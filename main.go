@@ -157,13 +157,11 @@ func main() {
 		WithPeersPort(PeersPort).
 		WithKinds(new(Vehicle))
 
-	logger.Info("Starting the Goakt system")
-
-	pid := os.Getpid()
+	isRunningOnContainer := os.Getpid() == 1
 
 	var actorSystem goakt.ActorSystem
 
-	if pid == 1 {
+	if isRunningOnContainer {
 		logger.Info("Running in container with cluster mode")
 		actorSystem, err = goakt.NewActorSystem("VehicleActorSystem",
 			goakt.WithPassivationDisabled(),
@@ -180,7 +178,6 @@ func main() {
 			goakt.WithActorInitMaxRetries(3),
 		)
 	}
-
 
 	if err != nil {
 		logger.Error("Error creating actor system", err)
@@ -207,7 +204,7 @@ func main() {
 	logger.Info("Server is starting on port 8080...")
 	go func() {
 		host := "localhost:8080"
-		if pid == 1 {
+		if isRunningOnContainer {
 			host = "0.0.0.0:8080"
 		}
 		err = http.ListenAndServe(host, nil)
@@ -272,11 +269,11 @@ func main() {
 	<-interruptSignal
 
 	// make sure if it is unix init process to exit
-	if pid == 1 {
+	if isRunningOnContainer {
 		os.Exit(0)
 	}
 
-	process, _ := os.FindProcess(pid)
+	process, _ := os.FindProcess(os.Getpid())
 	switch {
 	case runtime.GOOS == "windows":
 		_ = process.Kill()
