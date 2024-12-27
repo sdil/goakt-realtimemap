@@ -1,0 +1,42 @@
+services:
+  node0:
+    build: ./
+    hostname: node0
+    ports:
+      - "8080:8080"
+      - "9092"
+      - "3322"
+      - "3320"
+    environment:
+      SERVICE_NAME: node0
+      GOSSIP_PORT: 3322
+      PEERS_PORT: 3320
+      REMOTING_PORT: 50052
+
+  node1:
+    build: ./
+    hostname: node1
+    ports:
+      - "8081:8080"
+      - "9092"
+      - "3322"
+      - "3320"
+    environment:
+      SERVICE_NAME: node1
+      GOSSIP_PORT: 3322
+      PEERS_PORT: 3320
+      REMOTING_PORT: 50052
+
+  node2:
+    build: ./
+    hostname: node2
+    ports:
+      - "8082:8080"
+      - "9092"
+      - "3322"
+      - "3320"
+    environment:
+      SERVICE_NAME: node2
+      GOSSIP_PORT: 3322
+      PEERS_PORT: 3320
+      REMOTING_PORT: 50052

@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 	goakt "github.com/tochemey/goakt/v2/actors"
+	"github.com/tochemey/goakt/v2/discovery/static"
 	"github.com/tochemey/goakt/v2/log"
 
 	pb "sdil-busmap/pb"
@@ -27,17 +28,16 @@ func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vid := r.URL.Query().Get("id")
 		logger := actorSystem.Logger()
-		pid, err := actorSystem.LocalActor(vid)
-		if err != nil {
-			logger.Error(err)
-			return
-		}
 
 		command := &pb.GetPosition{}
-		res, _ := goakt.Ask(r.Context(), pid, command, time.Minute)
+		res, err := goakt.NoSender.SendSync(r.Context(), vid, command, time.Minute)
+		if err != nil {
+			logger.Error("Error sending command to actor", err)
+			return
+		}
 		position := res.(*pb.GetPosition)
 
-		fmt.Fprintf(w, "pid %v, latitude: %v, longitude: %v", pid.Name(), position.Latitude, position.Longitude)
+		fmt.Fprintf(w, "vid %v, latitude: %v, longitude: %v", vid, position.Latitude, position.Longitude)
 	}
 }
 
@@ -130,11 +130,58 @@ func main() {
 
 	logger.Info("Successfully connected to SQLite database")
 
-	actorSystem, err := goakt.NewActorSystem("VehicleActorSystem",
-		goakt.WithPassivationDisabled(),
-		goakt.WithLogger(logger),
-		goakt.WithActorInitMaxRetries(3),
-	)
+	logger.Info("Starting the Goakt cluster")
+	GossipPort := 3322
+	PeersPort := 3320
+	var RemotingPort int32 = 50052
+
+	// define the discovery options
+	discoConfig := static.Config{
+		Hosts: []string{
+			fmt.Sprintf("node0:%d", GossipPort),
+			fmt.Sprintf("node1:%d", GossipPort),
+			fmt.Sprintf("node2:%d", GossipPort),
+		},
+	}
+	// instantiate the dnssd discovery provider
+	disco := static.NewDiscovery(&discoConfig)
+
+	// grab the host
+	host, _ := os.Hostname()
+
+	clusterConfig := goakt.
+		NewClusterConfig().
+		WithDiscovery(disco).
+		WithPartitionCount(19).
+		WithDiscoveryPort(GossipPort).
+		WithPeersPort(PeersPort).
+		WithKinds(new(Vehicle))
+
+	logger.Info("Starting the Goakt system")
+
+	pid := os.Getpid()
+
+	var actorSystem goakt.ActorSystem
+
+	if pid == 1 {
+		logger.Info("Running in container with cluster mode")
+		actorSystem, err = goakt.NewActorSystem("VehicleActorSystem",
+			goakt.WithPassivationDisabled(),
+			goakt.WithLogger(logger),
+			goakt.WithActorInitMaxRetries(3),
+			goakt.WithRemoting(host, RemotingPort),
+			goakt.WithCluster(clusterConfig),
+		)
+	} else {
+		logger.Info("Running in local mode")
+		actorSystem, err = goakt.NewActorSystem("VehicleActorSystem",
+			goakt.WithPassivationDisabled(),
+			goakt.WithLogger(logger),
+			goakt.WithActorInitMaxRetries(3),
+		)
+	}
+
+
 	if err != nil {
 		logger.Error("Error creating actor system", err)
 		return
@@ -157,9 +204,12 @@ func main() {
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
 	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem))
 
-	fmt.Println("Server is starting on port 8080...")
+	logger.Info("Server is starting on port 8080...")
 	go func() {
 		host := "localhost:8080"
+		if pid == 1 {
+			host = "0.0.0.0:8080"
+		}
 		err = http.ListenAndServe(host, nil)
 		if err != nil {
 			fmt.Printf("Error starting server: %s\n", err)
@@ -220,7 +270,7 @@ func main() {
 	interruptSignal := make(chan os.Signal, 1)
 	signal.Notify(interruptSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-interruptSignal
-	pid := os.Getpid()
+
 	// make sure if it is unix init process to exit
 	if pid == 1 {
 		os.Exit(0)
