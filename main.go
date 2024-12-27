@@ -221,7 +221,7 @@ func main() {
 			if event.VehiclePosition.HasValidPosition() {
 				vid := &event.VehicleId
 
-				pid, err := actorSystem.Spawn(ctx,
+				_, err := actorSystem.Spawn(ctx,
 					*vid,
 					NewVehicle(*vid, db),
 					goakt.WithSupervisorStrategies(goakt.NewSupervisorStrategy(goakt.InternalError{}, goakt.NewRestartDirective())))
@@ -236,7 +236,7 @@ func main() {
 					Longitude: *event.VehiclePosition.Longitude,
 				}
 
-				_ = goakt.Tell(ctx, pid, command)
+				_ = goakt.NoSender.SendAsync(ctx, *vid, command)
 			}
 		}, ctx)
 
