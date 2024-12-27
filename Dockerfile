@@ -13,9 +13,6 @@ RUN go mod vendor
 # Copy the source from the current directory to the Working Directory inside the container
 COPY . .
 
-# RUN apk add build-base
-ENV CGO_ENABLED=1
-
 # Build the Go app
 RUN go build -o main .
 

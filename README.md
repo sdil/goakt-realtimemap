@@ -51,7 +51,7 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
     sqlite3 vehicle_position.db < migrations.sql
     ```
 
-### Running the Application
+### Running the Application in local mode
 
 1. Start the server:
     ```sh
@@ -60,6 +60,17 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
 
 2. Open http://localhost:8080 in your browser to view the real-time vehicle tracking map.
 3. Curl http://localhost:8080/vehicle?id={vehicle_id} in your terminal to see location of individual vehicle.
+
+### Running the Application in cluster mode
+
+1. Build the container
+    ```sh
+    docker compose build
+    ```
+2. Start the containers
+   ```sh
+   docker compose up
+   ```
 
 ### API Endpoints
 
