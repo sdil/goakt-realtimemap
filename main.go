@@ -268,7 +268,7 @@ func main() {
 
 			// Distribute the update randomly
 			// so that the database load is not too high
-			randomNumber := rand.Intn(10) + 1
+			randomNumber := rand.Intn(60) + 1
 			err := actorSystem.ScheduleWithCron(ctx, &pb.PersistLocation{}, actor, fmt.Sprintf("%d * * * * * *", randomNumber))
 			if err != nil {
 				logger.Error("Error scheduling persist location", err)
