@@ -38,7 +38,7 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
 1. Clone the repository:
     ```sh
     git clone https://github.com/sdil/goakt-realtimemap.git
-    cd sdil/goakt-realtimemap
+    cd goakt-realtimemap
     ```
 
 2. Install dependencies:
