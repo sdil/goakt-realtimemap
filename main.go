@@ -3,17 +3,19 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
-	"math/rand"
 	"time"
 
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/tochemey/goakt/v2/actors"
 	goakt "github.com/tochemey/goakt/v2/actors"
 	"github.com/tochemey/goakt/v2/discovery/static"
 	"github.com/tochemey/goakt/v2/log"
@@ -30,8 +32,14 @@ func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 		vid := r.URL.Query().Get("id")
 		logger := actorSystem.Logger()
 
+		_, pid, err := actorSystem.ActorOf(r.Context(), vid)
+		if errors.Is(err, actors.ErrActorNotFound(vid)) {
+			fmt.Fprintf(w, "vid %v not found", vid)
+			return
+		}
+
 		command := &pb.GetPosition{}
-		res, err := goakt.SendSync(r.Context(), vid, command, time.Minute)
+		res, err := pid.SendSync(r.Context(), vid, command, time.Minute)
 		if err != nil {
 			logger.Error("Error sending command to actor", err)
 			return
@@ -228,9 +236,12 @@ func main() {
 					Longitude: *event.VehiclePosition.Longitude,
 				}
 
-				err = goakt.SendAsync(ctx, *vid, command)
+				addr, pid, err := actorSystem.ActorOf(ctx, *vid)
+
 				if err != nil {
-					_, err := actorSystem.Spawn(ctx,
+					logger.Infof("Starting actor instance %v on node %v", *vid, actorSystem.Host())
+					// If actor is not found, create a new one
+					pid, err = actorSystem.Spawn(ctx,
 						*vid,
 						NewVehicle(*vid, db),
 						goakt.WithSupervisorStrategies(
@@ -243,7 +254,13 @@ func main() {
 						logger.Error("Error starting actor instance", err)
 						return
 					}
-					_ = goakt.SendAsync(ctx, *vid, command)
+				}
+
+				if pid != nil {
+					logger.Infof("Sending command from %v to actor %v %v %v", actorSystem.Host(), *vid, pid, addr)
+					err = pid.SendAsync(ctx, *vid, command)
+				} else if addr != nil {
+					logger.Infof("Actor %v already exists on node %v but we can't get the pid reference", *vid, addr)
 				}
 			}
 		}, ctx)
