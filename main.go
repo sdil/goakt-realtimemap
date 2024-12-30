@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
+	"math/rand"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -30,7 +31,7 @@ func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 		logger := actorSystem.Logger()
 
 		command := &pb.GetPosition{}
-		res, err := goakt.NoSender.SendSync(r.Context(), vid, command, time.Minute)
+		res, err := goakt.SendSync(r.Context(), vid, command, time.Minute)
 		if err != nil {
 			logger.Error("Error sending command to actor", err)
 			return
@@ -71,6 +72,7 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 
 		for {
 			// TODO: refactor this code because Actors is expensive call and we need to have a way to keep track of specific actors
+			// There are system actors that do not understand the GetPosition command
 			for _, pid := range actorSystem.Actors() {
 				// TODO: revisit this design
 				// In the meantime we cannot just ask all the the actors in the system
@@ -83,7 +85,8 @@ func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
 				}
 
 				command := &pb.GetPosition{}
-				res, _ := goakt.Ask(context.Background(), pid, command, time.Second)
+
+				res, _ := pid.SendSync(r.Context(), pid.Name(), command, time.Minute)
 
 				position, ok := res.(*pb.GetPosition)
 				if !ok {
@@ -184,6 +187,8 @@ func main() {
 		return
 	}
 
+	// TODO: Consider using Run() function for better error handling
+	// and coordinated shutdown
 	err = actorSystem.Start(ctx)
 	if err != nil {
 		logger.Error("Error starting actor system", err)
@@ -218,22 +223,28 @@ func main() {
 			if event.VehiclePosition.HasValidPosition() {
 				vid := &event.VehicleId
 
-				_, err := actorSystem.Spawn(ctx,
-					*vid,
-					NewVehicle(*vid, db),
-					goakt.WithSupervisorStrategies(goakt.NewSupervisorStrategy(goakt.InternalError{}, goakt.NewRestartDirective())))
-
-				if err != nil {
-					logger.Error("Error starting actor instance", err)
-					return
-				}
-
 				command := &pb.UpdatePosition{
 					Latitude:  *event.VehiclePosition.Latitude,
 					Longitude: *event.VehiclePosition.Longitude,
 				}
 
-				_ = goakt.NoSender.SendAsync(ctx, *vid, command)
+				err = goakt.SendAsync(ctx, *vid, command)
+				if err != nil {
+					_, err := actorSystem.Spawn(ctx,
+						*vid,
+						NewVehicle(*vid, db),
+						goakt.WithSupervisorStrategies(
+							goakt.NewSupervisorStrategy(
+								goakt.InternalError{},
+								goakt.NewRestartDirective()),
+						),
+					)
+					if err != nil {
+						logger.Error("Error starting actor instance", err)
+						return
+					}
+					_ = goakt.SendAsync(ctx, *vid, command)
+				}
 			}
 		}, ctx)
 
@@ -255,7 +266,10 @@ func main() {
 				continue
 			}
 
-			err := actorSystem.ScheduleWithCron(ctx, &pb.PersistLocation{}, actor, "0 * * * * * *")
+			// Distribute the update randomly
+			// so that the database load is not too high
+			randomNumber := rand.Intn(10) + 1
+			err := actorSystem.ScheduleWithCron(ctx, &pb.PersistLocation{}, actor, fmt.Sprintf("%d * * * * * *", randomNumber))
 			if err != nil {
 				logger.Error("Error scheduling persist location", err)
 				return

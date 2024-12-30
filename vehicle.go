@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
 	"time"
 
 	goakt "github.com/tochemey/goakt/v2/actors"
@@ -71,10 +70,6 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 			Positions: positions,
 		})
 	case *pb.PersistLocation:
-		// Distribute the update randomly
-		// so that the database load is not too high
-		randomNumber := rand.Intn(10) + 1
-		time.Sleep(time.Duration(randomNumber) * time.Second)
 		if err := v.persistLocation(ctx.Context()); err != nil {
 			v.logger.Errorf("failed to persist location: %v", err)
 			ctx.Err(goakt.NewInternalError(err))
