@@ -17,6 +17,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tochemey/goakt/v2/actors"
 	goakt "github.com/tochemey/goakt/v2/actors"
+	"github.com/tochemey/goakt/v2/address"
 	"github.com/tochemey/goakt/v2/discovery/static"
 	"github.com/tochemey/goakt/v2/log"
 
@@ -27,24 +28,37 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
 }
 
-func createVehicleHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
+func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vid := r.URL.Query().Get("id")
 		logger := actorSystem.Logger()
 
-		_, pid, err := actorSystem.ActorOf(r.Context(), vid)
-		if errors.Is(err, actors.ErrActorNotFound(vid)) {
+		command := &pb.GetPosition{}
+		var position *pb.GetPosition
+
+		addr, pid, err := actorSystem.ActorOf(r.Context(), vid)
+		switch {
+		case errors.Is(err, actors.ErrActorNotFound(vid)):
 			fmt.Fprintf(w, "vid %v not found", vid)
 			return
+		case pid != nil:
+			logger.Info("SendSync", vid)
+			res, _ := pid.SendSync(r.Context(), vid, command, time.Minute)
+			position = res.(*pb.GetPosition)
+		case addr != nil:
+			logger.Info("RemoteAsk", addr)
+			res, _ := remoting.RemoteAsk(r.Context(), address.NoSender(), addr, command, time.Minute)
+			unmarshalled, err := res.UnmarshalNew()
+			if err != nil {
+				logger.Info("Failed to unmarshall")
+			}
+			position = unmarshalled.(*pb.GetPosition)
 		}
 
-		command := &pb.GetPosition{}
-		res, err := pid.SendSync(r.Context(), vid, command, time.Minute)
 		if err != nil {
 			logger.Error("Error sending command to actor", err)
 			return
 		}
-		position := res.(*pb.GetPosition)
 
 		fmt.Fprintf(w, "vid %v, latitude: %v, longitude: %v", vid, position.Latitude, position.Longitude)
 	}
@@ -176,7 +190,6 @@ func main() {
 		logger.Info("Running in container with cluster mode")
 		actorSystem, err = goakt.NewActorSystem("VehicleActorSystem",
 			goakt.WithPassivationDisabled(),
-			goakt.WithLogger(logger),
 			goakt.WithActorInitMaxRetries(3),
 			goakt.WithRemoting(host, RemotingPort),
 			goakt.WithCluster(clusterConfig),
@@ -210,9 +223,11 @@ func main() {
 		}
 	}()
 
+	remoting := actors.NewRemoting()
+
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
-	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem))
+	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem, *remoting))
 
 	logger.Info("Server is starting on port 8080...")
 	go func() {
@@ -238,7 +253,8 @@ func main() {
 
 				addr, pid, err := actorSystem.ActorOf(ctx, *vid)
 
-				if err != nil {
+				switch {
+				case err != nil:
 					logger.Infof("Starting actor instance %v on node %v", *vid, actorSystem.Host())
 					// If actor is not found, create a new one
 					pid, err = actorSystem.Spawn(ctx,
@@ -254,13 +270,11 @@ func main() {
 						logger.Error("Error starting actor instance", err)
 						return
 					}
-				}
-
-				if pid != nil {
-					logger.Infof("Sending command from %v to actor %v %v %v", actorSystem.Host(), *vid, pid, addr)
-					err = pid.SendAsync(ctx, *vid, command)
-				} else if addr != nil {
-					logger.Infof("Actor %v already exists on node %v but we can't get the pid reference", *vid, addr)
+					_ = pid.SendAsync(ctx, *vid, command)
+				case pid != nil:
+					_ = pid.SendAsync(ctx, *vid, command)
+				case addr != nil:
+					_ = remoting.RemoteTell(ctx, address.NoSender(), addr, command)
 				}
 			}
 		}, ctx)
