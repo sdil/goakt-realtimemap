@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"math/rand"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -60,7 +61,7 @@ func ConsumeVehicleEvents(onEvent func(*Event), ctx context.Context) <-chan bool
 
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker("ssl://mqtt.hsl.fi:8883")
-	opts.SetClientID("goakt-map-2")
+	opts.SetClientID(fmt.Sprintf("goakt-map-%d", getRandomInt()))
 	opts.SetDefaultPublishHandler(f)
 	opts.SetKeepAlive(2 * time.Second)
 	opts.SetPingTimeout(1 * time.Second)
@@ -91,4 +92,8 @@ func ConsumeVehicleEvents(onEvent func(*Event), ctx context.Context) <-chan bool
 	done <- true
 
 	return done
+}
+
+func getRandomInt() int {
+	return rand.Intn(100) + 1
 }

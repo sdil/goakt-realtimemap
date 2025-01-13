@@ -1,0 +1,18 @@
+services:
+  node0:
+    build: ./
+    hostname: node0
+    ports:
+      - "8080:8080"
+
+  node1:
+    build: ./
+    hostname: node1
+    ports:
+      - "8081:8080"
+
+  node2:
+    build: ./
+    hostname: node2
+    ports:
+      - "8082:8080"

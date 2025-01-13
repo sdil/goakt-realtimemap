@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
 - **Real-Time Tracking**: Uses WebSockets to provide real-time updates of vehicle positions.
 - **Actor Model**: Utilizes the `goakt` actor framework to manage vehicle actors efficiently.
 - **SQLite Database**: Stores vehicle positions in a SQLite database for persistence.
-- **Buffered data persistence**: The data is persisted on database every 1 minute, and is distributed in a span of 10 second to reduce the load on the database
+- **Buffered data persistence**: The data is persisted on database every 1 minute, and is distributed in a span of 1 minute to reduce the load on the database
 - **REST API**: Provides a REST API to query the current position of vehicles.
 - **WebSocket API**: Offers a WebSocket endpoint for real-time vehicle position updates.
 - **Frontend Interface**: Includes an `index.html` file to visualize vehicle positions on a map.
@@ -30,15 +30,15 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
 
 ### Prerequisites
 
-- Go 1.15 or later
+- Go 1.23 or later
 - SQLite3
 
 ### Installation
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/vehicle-tracking-system.git
-    cd vehicle-tracking-system
+    git clone https://github.com/sdil/goakt-realtimemap.git
+    cd goakt-realtimemap
     ```
 
 2. Install dependencies:
@@ -51,7 +51,7 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
     sqlite3 vehicle_position.db < migrations.sql
     ```
 
-### Running the Application
+### Running the Application in local mode
 
 1. Start the server:
     ```sh
@@ -60,6 +60,17 @@ https://github.com/user-attachments/assets/09958842-ca17-4b07-8733-e0b6295be5db
 
 2. Open http://localhost:8080 in your browser to view the real-time vehicle tracking map.
 3. Curl http://localhost:8080/vehicle?id={vehicle_id} in your terminal to see location of individual vehicle.
+
+### Running the Application in cluster mode
+
+1. Build the container
+    ```sh
+    docker compose build
+    ```
+2. Start the containers
+   ```sh
+   docker compose up
+   ```
 
 ### API Endpoints
 
