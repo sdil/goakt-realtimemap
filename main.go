@@ -42,11 +42,9 @@ func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting
 			fmt.Fprintf(w, "vid %v not found", vid)
 			return
 		case pid != nil:
-			logger.Info("SendSync", vid)
 			res, _ := pid.SendSync(r.Context(), vid, command, time.Minute)
 			position = res.(*pb.GetPosition)
 		case addr != nil:
-			logger.Info("RemoteAsk", addr)
 			res, _ := remoting.RemoteAsk(r.Context(), address.NoSender(), addr, command, time.Minute)
 			unmarshalled, err := res.UnmarshalNew()
 			if err != nil {
@@ -57,6 +55,7 @@ func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting
 
 		if err != nil {
 			logger.Error("Error sending command to actor", err)
+			fmt.Fprintf(w, "Error sending command to actor %v", err)
 			return
 		}
 
@@ -231,7 +230,7 @@ func main() {
 
 	logger.Info("Server is starting on port 8080...")
 	go func() {
-		host := "localhost:8080"
+		host := "localhost:8082"
 		if isRunningOnContainer {
 			host = "0.0.0.0:8080"
 		}
