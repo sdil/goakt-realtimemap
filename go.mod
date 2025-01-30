@@ -5,7 +5,7 @@ go 1.23.4
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/tochemey/goakt/v2 v2.12.0
+	github.com/tochemey/goakt/v2 v2.12.1
 	google.golang.org/protobuf v1.36.4
 )
 
@@ -34,7 +34,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/logutils v1.0.0 // indirect
-	github.com/hashicorp/memberlist v0.5.2 // indirect
+	github.com/hashicorp/memberlist v0.5.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/miekg/dns v1.1.63 // indirect

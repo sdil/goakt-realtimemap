@@ -37,26 +37,34 @@ func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting
 		var position *pb.GetPosition
 
 		addr, pid, err := actorSystem.ActorOf(r.Context(), vid)
+		if err != nil {
+			logger.Error("Error sending command to actor", err)
+			fmt.Fprintf(w, "Error sending command to actor %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		switch {
 		case errors.Is(err, actors.ErrActorNotFound(vid)):
 			fmt.Fprintf(w, "vid %v not found", vid)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		case pid != nil:
-			res, _ := pid.SendSync(r.Context(), vid, command, time.Minute)
+			res, err := pid.SendSync(r.Context(), vid, command, time.Minute)
+			if err != nil || res == nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 			position = res.(*pb.GetPosition)
 		case addr != nil:
 			res, _ := remoting.RemoteAsk(r.Context(), address.NoSender(), addr, command, time.Minute)
 			unmarshalled, err := res.UnmarshalNew()
-			if err != nil {
+			if err != nil || res == nil  {
 				logger.Info("Failed to unmarshall")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 			position = unmarshalled.(*pb.GetPosition)
-		}
-
-		if err != nil {
-			logger.Error("Error sending command to actor", err)
-			fmt.Fprintf(w, "Error sending command to actor %v", err)
-			return
 		}
 
 		fmt.Fprintf(w, "vid %v, latitude: %v, longitude: %v", vid, position.Latitude, position.Longitude)
