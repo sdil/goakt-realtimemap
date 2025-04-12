@@ -10,18 +10,17 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	pb "sdil-busmap/pb"
 	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/tochemey/goakt/v2/actors"
-	goakt "github.com/tochemey/goakt/v2/actors"
-	"github.com/tochemey/goakt/v2/address"
-	"github.com/tochemey/goakt/v2/discovery/static"
-	"github.com/tochemey/goakt/v2/log"
-
-	pb "sdil-busmap/pb"
+	goakt "github.com/tochemey/goakt/v3/actor"
+	"github.com/tochemey/goakt/v3/address"
+	"github.com/tochemey/goakt/v3/discovery/static"
+	"github.com/tochemey/goakt/v3/log"
+	"github.com/tochemey/goakt/v3/remote"
 )
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +44,7 @@ func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting
 		}
 
 		switch {
-		case errors.Is(err, actors.ErrActorNotFound(vid)):
+		case errors.Is(err, goakt.ErrActorNotFound(vid)):
 			fmt.Fprintf(w, "vid %v not found", vid)
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -59,7 +58,7 @@ func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting
 		case addr != nil:
 			res, _ := remoting.RemoteAsk(r.Context(), address.NoSender(), addr, command, time.Minute)
 			unmarshalled, err := res.UnmarshalNew()
-			if err != nil || res == nil  {
+			if err != nil || res == nil {
 				logger.Info("Failed to unmarshall")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
@@ -198,7 +197,7 @@ func main() {
 		actorSystem, err = goakt.NewActorSystem("VehicleActorSystem",
 			goakt.WithPassivationDisabled(),
 			goakt.WithActorInitMaxRetries(3),
-			goakt.WithRemoting(host, RemotingPort),
+			goakt.WithRemote(remote.NewConfig(host, int(RemotingPort))),
 			goakt.WithCluster(clusterConfig),
 		)
 	} else {
@@ -230,7 +229,7 @@ func main() {
 		}
 	}()
 
-	remoting := actors.NewRemoting()
+	remoting := goakt.NewRemoting()
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
@@ -267,10 +266,10 @@ func main() {
 					pid, err = actorSystem.Spawn(ctx,
 						*vid,
 						NewVehicle(*vid, db),
-						goakt.WithSupervisorStrategies(
-							goakt.NewSupervisorStrategy(
-								goakt.InternalError{},
-								goakt.NewRestartDirective()),
+						goakt.WithSupervisor(
+							goakt.NewSupervisor(
+								goakt.WithAnyErrorDirective(goakt.RestartDirective),
+							),
 						),
 					)
 					if err != nil {

@@ -4,13 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	pb "sdil-busmap/pb"
 	"time"
 
-	goakt "github.com/tochemey/goakt/v2/actors"
-	"github.com/tochemey/goakt/v2/goaktpb"
-	"github.com/tochemey/goakt/v2/log"
-
-	pb "sdil-busmap/pb"
+	goakt "github.com/tochemey/goakt/v3/actor"
+	"github.com/tochemey/goakt/v3/goaktpb"
+	"github.com/tochemey/goakt/v3/log"
 )
 
 type Position struct {
