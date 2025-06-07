@@ -35,7 +35,7 @@ func NewVehicle(id string, db *sql.DB) *Vehicle {
 	}
 }
 
-func (v *Vehicle) PreStart(ctx context.Context) error {
+func (v *Vehicle) PreStart(ctx *goakt.Context) error {
 	v.position = make([]Position, 0)
 	return nil
 }
@@ -79,8 +79,8 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 	}
 }
 
-func (v *Vehicle) PostStop(ctx context.Context) error {
-	return v.persistLocation(ctx)
+func (v *Vehicle) PostStop(ctx *goakt.Context) error {
+	return v.persistLocation(ctx.Context())
 }
 
 func (v *Vehicle) persistLocation(ctx context.Context) error {

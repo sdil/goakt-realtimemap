@@ -44,7 +44,7 @@ func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting
 		}
 
 		switch {
-		case errors.Is(err, goakt.ErrActorNotFound(vid)):
+		case errors.Is(err, goakt.ErrActorNotFound):
 			fmt.Fprintf(w, "vid %v not found", vid)
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -235,12 +235,12 @@ func main() {
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
 	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem, *remoting))
 
-	logger.Info("Server is starting on port 8080...")
 	go func() {
 		host := "localhost:8082"
 		if isRunningOnContainer {
 			host = "0.0.0.0:8080"
 		}
+		logger.Info("Server is starting on port", host)
 		err = http.ListenAndServe(host, nil)
 		if err != nil {
 			fmt.Printf("Error starting server: %s\n", err)
