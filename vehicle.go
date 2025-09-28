@@ -71,7 +71,6 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 	case *pb.PersistLocation:
 		if err := v.persistLocation(ctx.Context()); err != nil {
 			v.logger.Errorf("failed to persist location: %v", err)
-			ctx.Err(goakt.NewInternalError(err))
 		}
 
 	default:

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	pb "sdil-busmap/pb"
 	"syscall"
 	"time"
+
 
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
@@ -27,7 +27,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
 }
 
-func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting) http.HandlerFunc {
+func createVehicleHandler(actorSystem goakt.ActorSystem, remoting remote.Remoting) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vid := r.URL.Query().Get("id")
 		logger := actorSystem.Logger()
@@ -44,10 +44,10 @@ func createVehicleHandler(actorSystem goakt.ActorSystem, remoting goakt.Remoting
 		}
 
 		switch {
-		case errors.Is(err, goakt.ErrActorNotFound):
-			fmt.Fprintf(w, "vid %v not found", vid)
-			w.WriteHeader(http.StatusNotFound)
-			return
+		// case errors.Is(err, errors.):
+		// 	fmt.Fprintf(w, "vid %v not found", vid)
+		// 	w.WriteHeader(http.StatusNotFound)
+		// 	return
 		case pid != nil:
 			res, err := pid.SendSync(r.Context(), vid, command, time.Minute)
 			if err != nil || res == nil {
@@ -195,7 +195,6 @@ func main() {
 	if isRunningOnContainer {
 		logger.Info("Running in container with cluster mode")
 		actorSystem, err = goakt.NewActorSystem("VehicleActorSystem",
-			goakt.WithPassivationDisabled(),
 			goakt.WithActorInitMaxRetries(3),
 			goakt.WithRemote(remote.NewConfig(host, int(RemotingPort))),
 			goakt.WithCluster(clusterConfig),
@@ -203,7 +202,6 @@ func main() {
 	} else {
 		logger.Info("Running in local mode")
 		actorSystem, err = goakt.NewActorSystem("VehicleActorSystem",
-			goakt.WithPassivationDisabled(),
 			goakt.WithLogger(logger),
 			goakt.WithActorInitMaxRetries(3),
 		)
@@ -229,11 +227,11 @@ func main() {
 		}
 	}()
 
-	remoting := goakt.NewRemoting()
+	remoting := remote.NewRemoting()
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
-	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem, *remoting))
+	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem, remoting))
 
 	go func() {
 		host := "localhost:8082"
