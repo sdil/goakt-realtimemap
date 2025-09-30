@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/tochemey/goakt/v3 v3.9.4-0.20250927220151-7ab06d5d6f88
+	github.com/tochemey/goakt/v3 v3.9.4-0.20250930195200-d5d120def84b
 	google.golang.org/protobuf v1.36.9
 )
 
