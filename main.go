@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	// "math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,7 +12,6 @@ import (
 	pb "sdil-busmap/pb"
 	"syscall"
 	"time"
-
 
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
@@ -82,63 +81,63 @@ type Reply struct {
 	Position interface{} `json:"position"`
 }
 
-func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
-	logger := actorSystem.Logger()
-	return func(w http.ResponseWriter, r *http.Request) {
-		ws, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			logger.Errorf("upgrade error: %v", err)
-			return
-		}
+// func createVehicleWsHandler(actorSystem goakt.ActorSystem) http.HandlerFunc {
+// 	logger := actorSystem.Logger()
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		ws, err := upgrader.Upgrade(w, r, nil)
+// 		if err != nil {
+// 			logger.Errorf("upgrade error: %v", err)
+// 			return
+// 		}
 
-		defer func(ws *websocket.Conn) {
-			err := ws.Close()
-			if err != nil {
-				logger.Errorf("close error: %v", err)
-			}
-		}(ws)
+// 		defer func(ws *websocket.Conn) {
+// 			err := ws.Close()
+// 			if err != nil {
+// 				logger.Errorf("close error: %v", err)
+// 			}
+// 		}(ws)
 
-		for {
-			// TODO: refactor this code because Actors is expensive call and we need to have a way to keep track of specific actors
-			// There are system actors that do not understand the GetPosition command
-			for _, pid := range actorSystem.Actors() {
-				// TODO: revisit this design
-				// In the meantime we cannot just ask all the the actors in the system
-				// we need to narrow it to actor types
-				switch pid.Actor().(type) {
-				case *Vehicle:
-				// pass
-				default:
-					continue
-				}
+// 		for {
+// 			// TODO: refactor this code because Actors is expensive call and we need to have a way to keep track of specific actors
+// 			// There are system actors that do not understand the GetPosition command
+// 			for _, pid := range actorSystem.Actors() {
+// 				// TODO: revisit this design
+// 				// In the meantime we cannot just ask all the the actors in the system
+// 				// we need to narrow it to actor types
+// 				switch pid.Actor().(type) {
+// 				case *Vehicle:
+// 				// pass
+// 				default:
+// 					continue
+// 				}
 
-				command := &pb.GetPosition{}
+// 				command := &pb.GetPosition{}
 
-				res, _ := pid.SendSync(r.Context(), pid.Name(), command, time.Minute)
+// 				res, _ := pid.SendSync(r.Context(), pid.Name(), command, time.Minute)
 
-				position, ok := res.(*pb.GetPosition)
-				if !ok {
-					logger.Error("failed to get position")
-					return
-				}
+// 				position, ok := res.(*pb.GetPosition)
+// 				if !ok {
+// 					logger.Error("failed to get position")
+// 					return
+// 				}
 
-				err = ws.WriteJSON(Reply{
-					Id:       pid.Name(),
-					Type:     "vehiclePosition",
-					Position: position,
-				})
+// 				err = ws.WriteJSON(Reply{
+// 					Id:       pid.Name(),
+// 					Type:     "vehiclePosition",
+// 					Position: position,
+// 				})
 
-				if err != nil {
-					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-						logger.Error(fmt.Errorf("%w", err))
-					}
-					logger.Errorf("websocket error: %w", err)
-					return
-				}
-			}
-		}
-	}
-}
+// 				if err != nil {
+// 					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+// 						logger.Error(fmt.Errorf("%w", err))
+// 					}
+// 					logger.Errorf("websocket error: %w", err)
+// 					return
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 func main() {
 	ctx := context.Background()
@@ -185,8 +184,7 @@ func main() {
 		WithDiscovery(disco).
 		WithPartitionCount(19).
 		WithDiscoveryPort(GossipPort).
-		WithPeersPort(PeersPort).
-		WithKinds(new(Vehicle))
+		WithPeersPort(PeersPort)
 
 	isRunningOnContainer := os.Getpid() == 1
 
@@ -230,7 +228,7 @@ func main() {
 	remoting := remote.NewRemoting()
 
 	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
+	// http.HandleFunc("/realtime-vehicle", createVehicleWsHandler(actorSystem))
 	http.HandleFunc("/vehicle", createVehicleHandler(actorSystem, remoting))
 
 	go func() {
@@ -245,40 +243,25 @@ func main() {
 		}
 	}()
 
+	vehicle := &Vehicle{}
+
 	go func() {
 		ingressDone := ConsumeVehicleEvents(func(event *Event) {
 			if event.VehiclePosition.HasValidPosition() {
-				vid := &event.VehicleId
+				vid := event.VehicleId
 
 				command := &pb.UpdatePosition{
 					Latitude:  *event.VehiclePosition.Latitude,
 					Longitude: *event.VehiclePosition.Longitude,
 				}
 
-				addr, pid, err := actorSystem.ActorOf(ctx, *vid)
+				identity, err := actorSystem.GrainIdentity(ctx, vid, func(ctx context.Context) (goakt.Grain, error) {
+					return vehicle, nil
+				})
 
-				switch {
-				case err != nil:
-					logger.Infof("Starting actor instance %v on node %v", *vid, actorSystem.Host())
-					// If actor is not found, create a new one
-					pid, err = actorSystem.Spawn(ctx,
-						*vid,
-						NewVehicle(*vid, db),
-						goakt.WithSupervisor(
-							goakt.NewSupervisor(
-								goakt.WithAnyErrorDirective(goakt.RestartDirective),
-							),
-						),
-					)
-					if err != nil {
-						logger.Error("Error starting actor instance", err)
-						return
-					}
-					_ = pid.SendAsync(ctx, *vid, command)
-				case pid != nil:
-					_ = pid.SendAsync(ctx, *vid, command)
-				case addr != nil:
-					_ = remoting.RemoteTell(ctx, address.NoSender(), addr, command)
+				err = actorSystem.TellGrain(ctx, identity, command)
+				if err != nil {
+					logger.Fatal(err)
 				}
 			}
 		}, ctx)
@@ -287,30 +270,30 @@ func main() {
 	}()
 
 	// Let the events flow for a minute before scheduling persist location
-	go func() {
-		time.Sleep(time.Minute)
-		logger.Debug("scheduling persist location")
+	// go func() {
+	// 	time.Sleep(time.Minute)
+	// 	logger.Debug("scheduling persist location")
 
-		// TODO: refactor this code because Actors is expensive call and we need to have a way to keep track of specific actors
-		actors := actorSystem.Actors()
-		for _, actor := range actors {
-			switch actor.Actor().(type) {
-			case *Vehicle:
-			// pass
-			default:
-				continue
-			}
+	// 	// TODO: refactor this code because Actors is expensive call and we need to have a way to keep track of specific actors
+	// 	actors := actorSystem.Actors()
+	// 	for _, actor := range actors {
+	// 		switch actor.Actor().(type) {
+	// 		case *Vehicle:
+	// 		// pass
+	// 		default:
+	// 			continue
+	// 		}
 
-			// Distribute the update randomly
-			// so that the database load is not too high
-			randomNumber := rand.Intn(60) + 1
-			err := actorSystem.ScheduleWithCron(ctx, &pb.PersistLocation{}, actor, fmt.Sprintf("%d * * * * * *", randomNumber))
-			if err != nil {
-				logger.Error("Error scheduling persist location", err)
-				return
-			}
-		}
-	}()
+	// 		// Distribute the update randomly
+	// 		// so that the database load is not too high
+	// 		randomNumber := rand.Intn(60) + 1
+	// 		err := actorSystem.ScheduleWithCron(ctx, &pb.PersistLocation{}, actor, fmt.Sprintf("%d * * * * * *", randomNumber))
+	// 		if err != nil {
+	// 			logger.Error("Error scheduling persist location", err)
+	// 			return
+	// 		}
+	// 	}
+	// }()
 
 	// Capture ctr+c signal
 	interruptSignal := make(chan os.Signal, 1)

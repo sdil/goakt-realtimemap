@@ -38,6 +38,7 @@ type Event struct {
 }
 
 func ConsumeVehicleEvents(onEvent func(*Event), ctx context.Context) <-chan bool {
+	fmt.Print("STARTING CONSUMER")
 	done := make(chan bool)
 	var f mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 		var event Event
@@ -61,7 +62,7 @@ func ConsumeVehicleEvents(onEvent func(*Event), ctx context.Context) <-chan bool
 
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker("ssl://mqtt.hsl.fi:8883")
-	opts.SetClientID(fmt.Sprintf("goakt-map-%d", getRandomInt()))
+	opts.SetClientID("realtimemap-go")
 	opts.SetDefaultPublishHandler(f)
 	opts.SetKeepAlive(2 * time.Second)
 	opts.SetPingTimeout(1 * time.Second)

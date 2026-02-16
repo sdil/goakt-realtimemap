@@ -7,7 +7,7 @@ import (
 	pb "sdil-busmap/pb"
 	"time"
 
-	goakt "github.com/tochemey/goakt/v3/actor"
+	"github.com/tochemey/goakt/v3/actor"
 	"github.com/tochemey/goakt/v3/goaktpb"
 	"github.com/tochemey/goakt/v3/log"
 )
@@ -26,24 +26,16 @@ type Vehicle struct {
 }
 
 // ensure that Vehicle implements Actor interface
-var _ goakt.Actor = (*Vehicle)(nil)
+var _ actor.Grain = (*Vehicle)(nil)
 
-func NewVehicle(id string, db *sql.DB) *Vehicle {
-	return &Vehicle{
-		id: id,
-		db: db,
-	}
-}
-
-func (v *Vehicle) PreStart(ctx *goakt.Context) error {
+func (v *Vehicle) OnActivate(ctx context.Context, props *actor.GrainProps) error {
 	v.position = make([]Position, 0)
 	return nil
 }
 
-func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
+func (v *Vehicle) OnReceive(ctx *actor.GrainContext) {
 	switch msg := ctx.Message().(type) {
 	case *goaktpb.PostStart:
-		v.logger = ctx.Logger()
 		v.logger.Infof("Vehicle=(%s) started", v.id)
 	case *pb.GetPosition:
 		ctx.Response(&pb.GetPosition{
@@ -78,8 +70,9 @@ func (v *Vehicle) Receive(ctx *goakt.ReceiveContext) {
 	}
 }
 
-func (v *Vehicle) PostStop(ctx *goakt.Context) error {
-	return v.persistLocation(ctx.Context())
+func (v *Vehicle) OnDeactivate(ctx context.Context, props *actor.GrainProps) error {
+	return nil
+	// return v.persistLocation(ctx.Context())
 }
 
 func (v *Vehicle) persistLocation(ctx context.Context) error {
